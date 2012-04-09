@@ -1,0 +1,2 @@
+debian/conf-archive/* etc/hs/archive
+debian/build-hs-archive/objs/hs-archive usr/sbin

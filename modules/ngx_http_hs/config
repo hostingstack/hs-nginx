@@ -1,0 +1,7 @@
+ngx_addon_name=ngx_http_hs_module
+HTTP_MODULES="$HTTP_MODULES ngx_http_hs_module"
+NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_http_hs_module.c"
+NGX_ADDON_DEPS="$NGX_ADDON_DEPS $ngx_addon_dir/ngx_http_hs_module.h"
+
+CFLAGS="$CFLAGS -I$ngx_addon_dir -I$ngx_addon_dir/../ngx_http_hs/"
+CORE_LIBS="$CORE_LIBS -L/usr/local/lib -ltokyocabinet"

@@ -1,0 +1,31 @@
+This is an nginx http proxy upstream module.
+
+cloudrouter connects to the Agent (using custom interface), starts
+the app & uses the hostname acquired there to create an upstream.
+This module requires an additional patch against nginx-1.05,
+nginx-preconnect.patch.
+ngx_http_hs MUST be loaded and configured.
+
+Example configuration:
+
+http {
+    hs_route_db /home/ch/cloud.tcb;
+    hs_key_material_db /home/ch/keymat.tcb;
+    upstream cloud {
+        cloud on;
+        server localhost:8404; # app-not-found handler
+    }
+    server {
+        location / {
+            proxy_pass http://cloud;
+            proxy_set_header Host $http_host;
+        }
+    }
+    server {
+        listen 8404;
+        error_page 403 404 500 /__HS/404.html;
+        root   /etc/hs-httpgateway/docroot/;
+    }
+}
+
+

@@ -1,0 +1,2 @@
+debian/conf-httpgateway/* etc/hs/httpgateway
+debian/build-hs-httpgateway/objs/hs-httpgateway usr/sbin

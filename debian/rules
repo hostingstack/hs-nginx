@@ -1,0 +1,149 @@
+#!/usr/bin/make -f
+
+CFLAGS = -Wall -g
+
+FLAVOURS:=hs-httpgateway hs-archive
+
+NGINX_VERSION = 1.0.5
+BUILDDIR_hs-httpgateway = $(CURDIR)/debian/build-hs-httpgateway
+BUILDDIR_hs-archive = $(CURDIR)/debian/build-hs-archive
+MODULESDIR = $(CURDIR)/modules
+BASEDIR = $(CURDIR)
+
+DEB_BUILD_ARCH ?=$(shell dpkg-architecture -qDEB_BUILD_ARCH)
+ifeq ($(DEB_BUILD_ARCH),sparc)
+	CONFIGURE_OPTS = --with-cc-opt="-m32 -mcpu=ultrasparc"
+endif
+
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -O0
+else
+	CFLAGS += -O2
+endif
+
+config.env.%:
+	dh_testdir
+	-rm -r $(BUILDDIR_$*)
+	mkdir -p $(BUILDDIR_$*)
+	tar -C $(BUILDDIR_$*) -xzf $(CURDIR)/nginx-$(NGINX_VERSION).tar.gz
+	mv $(BUILDDIR_$*)/nginx-$(NGINX_VERSION)/* $(BUILDDIR_$*)/
+	cd $(BUILDDIR_$*) && QUILT_PATCHES=$(CURDIR)/patches quilt push -a
+
+config.status.hs-httpgateway: config.env.hs-httpgateway
+	cd $(BUILDDIR_hs-httpgateway) && ./configure \
+	    --conf-path=/etc/hs/httpgateway/hs-httpgateway.conf \
+	    --error-log-path=/var/log/hs-httpgateway/error.log \
+	    --http-client-body-temp-path=/var/lib/hs/httpgateway/body \
+	    --http-fastcgi-temp-path=/var/lib/hs/httpgateway/fastcgi \
+	    --http-log-path=/var/log/hs-httpgateway/access.log \
+	    --http-proxy-temp-path=/var/lib/hs/httpgateway/proxy \
+	    --lock-path=/var/lock/hs-httpgateway.lock \
+	    --pid-path=/var/run/hs-httpgateway.pid \
+	    --with-http_gzip_static_module \
+	    --with-http_ssl_module \
+	    --with-ipv6 \
+	    --without-http_browser_module \
+	    --without-http_geo_module \
+	    --without-http_limit_req_module \
+	    --without-http_limit_zone_module \
+	    --without-http_map_module \
+	    --without-http_memcached_module \
+	    --without-http_referer_module \
+	    --without-http_scgi_module \
+	    --without-http_split_clients_module \
+	    --without-http_ssi_module \
+	    --without-http_userid_module \
+	    --without-http_uwsgi_module \
+	    --add-module=$(MODULESDIR)/ngx_http_hs \
+	    --add-module=$(MODULESDIR)/ngx_http_cloudrouter \
+	    --add-module=$(MODULESDIR)/ngx_http_virtualssl \
+            $(CONFIGURE_OPTS) >$@
+	touch $@
+
+config.status.hs-archive: config.env.hs-archive
+	cd $(BUILDDIR_hs-archive) && ./configure \
+	    --conf-path=/etc/hs/archive/hs-archive.conf \
+	    --error-log-path=/var/log/hs-archive/error.log \
+	    --http-client-body-temp-path=/var/lib/hs/archive/body \
+	    --http-fastcgi-temp-path=/var/lib/hs/archive/fastcgi \
+	    --http-log-path=/var/log/hs-archive/access.log \
+	    --http-proxy-temp-path=/var/lib/hs/archive/proxy \
+	    --lock-path=/var/lock/hs-archive.lock \
+	    --pid-path=/var/run/hs-archive.pid \
+	    --with-http_gzip_static_module \
+	    --with-http_ssl_module \
+	    --with-http_dav_module \
+	    --with-ipv6 \
+	    --without-http_browser_module \
+	    --without-http_geo_module \
+	    --without-http_limit_req_module \
+	    --without-http_limit_zone_module \
+	    --without-http_map_module \
+	    --without-http_memcached_module \
+	    --without-http_referer_module \
+	    --without-http_scgi_module \
+	    --without-http_split_clients_module \
+	    --without-http_ssi_module \
+	    --without-http_userid_module \
+	    --without-http_uwsgi_module \
+            $(CONFIGURE_OPTS) >$@
+	touch $@
+
+config.status.%:
+	echo "configuration for flavour $* not yet defined."
+
+build-arch.%: config.status.%
+	dh_testdir
+	dh_prep
+	$(MAKE) -C $(BUILDDIR_$*) build
+	mv $(BUILDDIR_$*)/objs/nginx $(BUILDDIR_$*)/objs/$*
+
+build-arch: $(foreach flavour,$(FLAVOURS),build-arch.$(flavour))
+	dh_testdir
+	touch $@
+
+build-dbg:
+	dh_testdir
+	touch $@
+
+build: build-arch
+	dh_testdir
+	touch $@
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+	rm -f config.sub config.guess
+	dh_clean
+	rm -rf $(CURDIR)/debian/build-*
+
+install:
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+	dh_install
+
+binary-arch: install build-dbg
+	dh_testdir -a
+	dh_testroot -a
+	dh_installman -a
+	dh_installinit -r --no-start -a
+	dh_installlogrotate -a
+	dh_strip --package=hs-httpgateway --dbg-package=hs-httpgateway-dbg
+	dh_strip --package=hs-archive --dbg-package=hs-archive-dbg
+	dh_link -aA
+	dh_lintian -a
+	dh_compress -a
+	dh_perl -a
+	dh_fixperms -a
+	dh_installdeb -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb -a
+
+binary: binary-arch
+
+.PHONY: build clean binary-arch binary install

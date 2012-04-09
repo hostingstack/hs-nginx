@@ -1,0 +1,16 @@
+ngx_http_hs keeps the TokyoCabinet handles open.
+
+The route database can be created manually, tool is in cloudtcb-tools.
+
+tcbadd site-host primary-agent-ip secondary-agent-ip app-id-token
+tcbadd www.example.org 127.0.0.1 127.0.0.2 4242_tokenaabbccddeeff
+
+The key_material database currently can only be written by the HS Agent.
+
+Example configuration:
+
+http {
+  hs_route_db /home/ch/cloud.tcb;
+  hs_key_material_db /home/ch/keymat.tcb;
+}
+

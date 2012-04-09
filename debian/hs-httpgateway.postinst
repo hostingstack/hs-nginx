@@ -1,0 +1,50 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    logdir="/var/log/hs-httpgateway"
+    # Ensure existance and right state of log files and directory
+    if [ ! -d "$logdir" -a ! -L "$logdir" ]; then
+      mkdir "$logdir"
+    fi
+    chown -R www-data:adm $logdir
+    chmod 0750 $logdir
+    find $logdir -type f -exec chmod 0640 {} +;
+    ;;
+
+  abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+  *)
+    echo "postinst called with unknown argument \`$1'" >&2
+    exit 1
+    ;;
+esac
+
+if [ -x /etc/init.d/hs-httpgateway ]; then
+  if [ -f /var/run/hs-httpgateway.pid ] && pidof /usr/sbin/hs-httpgateway >/dev/null; then
+    echo "Trying a soft restart"
+    NGX_PID=`cat /var/run/hs-httpgateway.pid`
+    if kill -s USR2 $NGX_PID 2>/dev/null; then
+      while [ ! -f /var/run/hs-httpgateway.pid.oldbin ]; do
+        echo "WAITING"
+        cnt=`expr $cnt + 1`
+        if [ $cnt -gt 10 ]; then
+          echo "Nginx 'soft' update failed, doing restart"
+          kill -s KILL $NGX_PID
+          invoke-rc.d hs-httpgateway start
+          exit 0
+        fi
+        sleep 1
+      done
+      echo "QUIT"
+      NGX_OLD_PID=`cat /var/run/hs-httpgateway.pid.oldbin`
+      kill -s QUIT $NGX_OLD_PID
+    fi
+  fi
+fi
+
+#DEBHELPER#
+
+exit 0

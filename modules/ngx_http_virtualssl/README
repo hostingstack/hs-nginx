@@ -1,0 +1,17 @@
+This is an nginx http module.
+
+ngx_http_virtualssl provides an alternative SSL SNI servername callback handler.
+This module requires an additional patch to actually work.
+ngx_http_hs MUST be loaded and configured.
+
+Example configuration:
+
+http {
+    hs_route_db /home/ch/cloud.tcb;
+    hs_key_material_db /home/ch/keymat.tcb;
+    server {
+	/* standard ssl configuration */
+	virtualssl on;
+    }
+}
+

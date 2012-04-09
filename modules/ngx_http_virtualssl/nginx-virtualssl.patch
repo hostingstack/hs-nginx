@@ -1,0 +1,60 @@
+diff --git a/src/http/modules/ngx_http_ssl_module.c b/src/http/modules/ngx_http_ssl_module.c
+index ee6cc6f..fb98acf 100644
+--- a/src/http/modules/ngx_http_ssl_module.c
++++ b/src/http/modules/ngx_http_ssl_module.c
+@@ -210,7 +210,7 @@ static ngx_http_variable_t  ngx_http_ssl_vars[] = {
+ };
+ 
+ 
+-static ngx_str_t ngx_http_ssl_sess_id_ctx = ngx_string("HTTP");
++ngx_str_t ngx_http_ssl_sess_id_ctx = ngx_string("HTTP");
+ 
+ 
+ static ngx_int_t
+diff --git a/src/http/modules/ngx_http_ssl_module.h b/src/http/modules/ngx_http_ssl_module.h
+index 29eedc8..94aea74 100644
+--- a/src/http/modules/ngx_http_ssl_module.h
++++ b/src/http/modules/ngx_http_ssl_module.h
+@@ -12,6 +12,7 @@
+ #include <ngx_core.h>
+ #include <ngx_http.h>
+ 
++extern ngx_str_t ngx_http_ssl_sess_id_ctx;
+ 
+ typedef struct {
+     ngx_flag_t                      enable;
+diff --git a/src/http/ngx_http_request.c b/src/http/ngx_http_request.c
+index 2cef4fa..e39b127 100644
+--- a/src/http/ngx_http_request.c
++++ b/src/http/ngx_http_request.c
+@@ -62,6 +62,9 @@ static u_char *ngx_http_log_error_handler(ngx_http_request_t *r,
+ static void ngx_http_ssl_handshake(ngx_event_t *rev);
+ static void ngx_http_ssl_handshake_handler(ngx_connection_t *c);
+ #endif
++#if (NGX_HTTP_VIRTUALSSL)
++#include <ngx_http_virtualssl_module.h>
++#endif
+ 
+ 
+ static char *ngx_http_client_errors[] = {
+@@ -637,6 +640,7 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+     ngx_connection_t         *c;
+     ngx_http_request_t       *r;
+     ngx_http_ssl_srv_conf_t  *sscf;
++    int                       ret;
+ 
+     servername = SSL_get_servername(ssl_conn, TLSEXT_NAMETYPE_host_name);
+ 
+@@ -665,6 +669,12 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+         return SSL_TLSEXT_ERR_NOACK;
+     }
+ 
++#if (NGX_HTTP_VIRTUALSSL)
++    ret = ngx_http_virtualssl_handle_sni(ssl_conn, host, len);
++    if (ret != SSL_TLSEXT_ERR_NOACK)
++        return ret;
++#endif
++
+     if (ngx_http_find_virtual_server(r, host, len) != NGX_OK) {
+         return SSL_TLSEXT_ERR_NOACK;
+     }

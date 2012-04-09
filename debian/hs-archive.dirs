@@ -1,0 +1,6 @@
+etc/hs/archive
+usr/share/hs-archive
+var/log/hs-archive
+var/lib/hs/archive
+usr/sbin
+srv/hs-archive

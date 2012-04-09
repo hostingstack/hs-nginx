@@ -1,0 +1,9 @@
+config.*
+build
+build-*
+debian/build-hs-*/
+debian/hs-nginx/
+debian/hs-nginx-dbg/
+debian/hs-nginx*.*debhelper*
+debian/*.substvars
+debian/files

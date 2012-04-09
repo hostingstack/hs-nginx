@@ -1,0 +1,147 @@
+diff --git a/src/event/ngx_event_connect.h b/src/event/ngx_event_connect.h
+index d64f1bb..f067830 100644
+--- a/src/event/ngx_event_connect.h
++++ b/src/event/ngx_event_connect.h
+@@ -24,6 +24,7 @@ typedef ngx_int_t (*ngx_event_get_peer_pt)(ngx_peer_connection_t *pc,
+     void *data);
+ typedef void (*ngx_event_free_peer_pt)(ngx_peer_connection_t *pc, void *data,
+     ngx_uint_t state);
++typedef void (*ngx_event_preconnect_pt)(void *pc, void *data);/* actually: ngx_http_request_t *r, ngx_http_upstream_t *u */
+ #if (NGX_SSL)
+ 
+ typedef ngx_int_t (*ngx_event_set_peer_session_pt)(ngx_peer_connection_t *pc,
+@@ -46,6 +47,8 @@ struct ngx_peer_connection_s {
+     ngx_event_free_peer_pt           free;
+     void                            *data;
+ 
++    ngx_event_preconnect_pt          preconnect;
++
+ #if (NGX_SSL)
+     ngx_event_set_peer_session_pt    set_session;
+     ngx_event_save_peer_session_pt   save_session;
+diff --git a/src/http/ngx_http_upstream.c b/src/http/ngx_http_upstream.c
+index ad5b449..f000898 100644
+--- a/src/http/ngx_http_upstream.c
++++ b/src/http/ngx_http_upstream.c
+@@ -64,8 +64,6 @@ static void ngx_http_upstream_store(ngx_http_request_t *r,
+     ngx_http_upstream_t *u);
+ static void ngx_http_upstream_dummy_handler(ngx_http_request_t *r,
+     ngx_http_upstream_t *u);
+-static void ngx_http_upstream_next(ngx_http_request_t *r,
+-    ngx_http_upstream_t *u, ngx_uint_t ft_type);
+ static void ngx_http_upstream_cleanup(void *data);
+ static void ngx_http_upstream_finalize_request(ngx_http_request_t *r,
+     ngx_http_upstream_t *u, ngx_int_t rc);
+@@ -1065,32 +1063,14 @@ ngx_http_upstream_check_broken_connection(ngx_http_request_t *r,
+ }
+ 
+ 
+-static void
+-ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
++
++void
++ngx_http_upstream_connect_real(ngx_http_request_t *r, ngx_http_upstream_t *u)
+ {
+     ngx_int_t          rc;
+     ngx_time_t        *tp;
+     ngx_connection_t  *c;
+ 
+-    r->connection->log->action = "connecting to upstream";
+-
+-    r->connection->single_connection = 0;
+-
+-    if (u->state && u->state->response_sec) {
+-        tp = ngx_timeofday();
+-        u->state->response_sec = tp->sec - u->state->response_sec;
+-        u->state->response_msec = tp->msec - u->state->response_msec;
+-    }
+-
+-    u->state = ngx_array_push(r->upstream_states);
+-    if (u->state == NULL) {
+-        ngx_http_upstream_finalize_request(r, u,
+-                                           NGX_HTTP_INTERNAL_SERVER_ERROR);
+-        return;
+-    }
+-
+-    ngx_memzero(u->state, sizeof(ngx_http_upstream_state_t));
+-
+     tp = ngx_timeofday();
+     u->state->response_sec = tp->sec;
+     u->state->response_msec = tp->msec;
+@@ -1199,6 +1179,46 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
+     ngx_http_upstream_send_request(r, u);
+ }
+ 
++static void
++ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
++{
++    ngx_time_t  *tp;
++    // from previous upstream_connect
++    r->connection->log->action = "connecting to upstream";
++
++    r->connection->single_connection = 0;
++
++    if (u->state && u->state->response_sec) {
++        tp = ngx_timeofday();
++        u->state->response_sec = tp->sec - u->state->response_sec;
++        u->state->response_msec = tp->msec - u->state->response_msec;
++    }
++
++    u->state = ngx_array_push(r->upstream_states);
++    if (u->state == NULL) {
++        ngx_http_upstream_finalize_request(r, u,
++                                           NGX_HTTP_INTERNAL_SERVER_ERROR);
++        return;
++    }
++
++    ngx_memzero(u->state, sizeof(ngx_http_upstream_state_t));
++
++
++
++
++
++    if(u->peer.preconnect==0) {
++        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
++                       "\n\n\nno preconnect\n\n\n");
++    } else {
++        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
++                       "\n\n\npreconnect\n\n\n");
++        u->peer.preconnect(r,u);
++        return;
++    }
++    ngx_http_upstream_connect_real(r,u);
++}
++
+ 
+ #if (NGX_HTTP_SSL)
+ 
+@@ -2779,7 +2799,7 @@ ngx_http_upstream_dummy_handler(ngx_http_request_t *r, ngx_http_upstream_t *u)
+ }
+ 
+ 
+-static void
++void
+ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
+     ngx_uint_t ft_type)
+ {
+diff --git a/src/http/ngx_http_upstream.h b/src/http/ngx_http_upstream.h
+index 01e2e1e..67e4c7e 100644
+--- a/src/http/ngx_http_upstream.h
++++ b/src/http/ngx_http_upstream.h
+@@ -332,10 +332,15 @@ ngx_int_t ngx_http_upstream_hide_headers_hash(ngx_conf_t *cf,
+     ngx_http_upstream_conf_t *conf, ngx_http_upstream_conf_t *prev,
+     ngx_str_t *default_hide_headers, ngx_hash_init_t *hash);
+ 
+-
+ #define ngx_http_conf_upstream_srv_conf(uscf, module)                         \
+     uscf->srv_conf[module.ctx_index]
+ 
++void
++ngx_http_upstream_connect_real(ngx_http_request_t *r, ngx_http_upstream_t *u);
++
++void
++ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
++    ngx_uint_t ft_type);
+ 
+ extern ngx_module_t        ngx_http_upstream_module;
+ extern ngx_conf_bitmask_t  ngx_http_upstream_cache_method_mask[];

@@ -1,0 +1,54 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    logdir="/var/log/hs-archive"
+    # Ensure existance and right state of log files and directory
+    if [ ! -d "$logdir" -a ! -L "$logdir" ]; then
+      mkdir "$logdir"
+    fi
+    chown -R www-data:adm $logdir
+    chmod 0750 $logdir
+    find $logdir -type f -exec chmod 0640 {} +;
+
+    # Don't recursively chown the whole archive after every upgrade, this causes
+    # the ctime of the files to be changed which may interfere with backup software
+    find /srv/hs-archive -type d -print0 | xargs -0 chown www-data:adm
+    ;;
+
+  abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+  *)
+    echo "postinst called with unknown argument \`$1'" >&2
+    exit 1
+    ;;
+esac
+
+if [ -x /etc/init.d/hs-archive ]; then
+  if [ -f /var/run/hs-archive.pid ] && pidof /usr/sbin/hs-archive >/dev/null; then
+    echo "Trying a soft restart"
+    NGX_PID=`cat /var/run/hs-archive.pid`
+    if kill -s USR2 $NGX_PID 2>/dev/null; then
+      while [ ! -f /var/run/hs-archive.pid.oldbin ]; do
+        echo "WAITING"
+        cnt=`expr $cnt + 1`
+        if [ $cnt -gt 10 ]; then
+          echo "Nginx 'soft' update failed, doing restart"
+          kill -s KILL $NGX_PID
+          invoke-rc.d hs-archive start
+          exit 0
+        fi
+        sleep 1
+      done
+      echo "QUIT"
+      NGX_OLD_PID=`cat /var/run/hs-archive.pid.oldbin`
+      kill -s QUIT $NGX_OLD_PID
+    fi
+  fi
+fi
+
+#DEBHELPER#
+
+exit 0

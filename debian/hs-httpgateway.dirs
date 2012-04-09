@@ -1,0 +1,6 @@
+etc/hs/httpgateway
+usr/share/hs-httpgateway
+var/log/hs-httpgateway
+var/lib/hs/httpgateway
+usr/sbin
+var/lib/hs

@@ -1,0 +1,34 @@
+Source: hs-nginx
+Section: httpd
+Priority: optional
+Maintainer: HostingStack Maintainers <maintainers@hostingstack.com>
+Build-Depends: debhelper (>= 7), autotools-dev, libssl-dev, libpcre3-dev, libthrift-dev, libtokyocabinet-dev, zlib1g-dev, quilt
+Standards-Version: 3.9.1
+
+Package: hs-httpgateway
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, hs-agent (>= 0.0.2)
+Description: HostingStack HTTP Request Router
+ HostingStack HTTP Request Router
+
+Package: hs-httpgateway-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: ${misc:Depends}, hs-httpgateway (= ${binary:Version})
+Description: Debugging symbols for hs-httpgateway
+ .
+
+Package: hs-archive
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: HostingStack Archiving Server
+ HostingStack Archiving Server
+
+Package: hs-archive-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: ${misc:Depends}, hs-archive (= ${binary:Version})
+Description: Debugging symbols for hs-archive
+ .

@@ -1,0 +1,5 @@
+hs-nginx (1.0.0) unstable; urgency=low
+
+  * Initial HostingStack release.
+
+ -- Christian Hofstaedtler <christian@hofstaedtler.name>  Tue, 13 Dec 2011 20:37:34 +0100
