@@ -37,11 +37,13 @@ index 2cef4fa..e39b127 100644
  
  
  static char *ngx_http_client_errors[] = {
-@@ -637,6 +640,7 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
+@@ -637,6 +642,9 @@ ngx_http_ssl_servername(ngx_ssl_conn_t *ssl_conn, int *ad, void *arg)
      ngx_connection_t         *c;
      ngx_http_request_t       *r;
      ngx_http_ssl_srv_conf_t  *sscf;
++#if (NGX_HTTP_VIRTUALSSL)
 +    int                       ret;
++#endif
  
      servername = SSL_get_servername(ssl_conn, TLSEXT_NAMETYPE_host_name);
  

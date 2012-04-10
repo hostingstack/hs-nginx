@@ -4,7 +4,7 @@ CFLAGS = -Wall -g
 
 FLAVOURS:=hs-httpgateway hs-archive
 
-NGINX_VERSION = 1.0.5
+NGINX_VERSION = 1.0.14
 BUILDDIR_hs-httpgateway = $(CURDIR)/debian/build-hs-httpgateway
 BUILDDIR_hs-archive = $(CURDIR)/debian/build-hs-archive
 MODULESDIR = $(CURDIR)/modules
